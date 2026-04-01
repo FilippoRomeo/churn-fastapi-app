@@ -1,7 +1,68 @@
-.env
+# Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Conda
+.conda/
+
+# Virtual Environment
+churn-api/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+
+# Database
 *.db
-*.sqlite*
+*.sqlite
+*.sqlite3
+churn_predictions.db
+
+# Model files (optional - might want to include)
+# saved_models/*.pkl
+
+# Logs
 *.log
-data/*:Zone.Identifier
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebooks (if any)
+.ipynb_checkpoints/
+*.ipynb
+
+# Data files (don't commit large CSVs)
+data/*.csv
+*.csv
+
+# Temporary files
+tmp/
+temp/
