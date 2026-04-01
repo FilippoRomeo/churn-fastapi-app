@@ -1,0 +1,45 @@
+/* Custom styles to complement Tailwind */
+
+/* Gradient background */
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* HTMX loading state */
+.htmx-request {
+    opacity: 0.6;
+    transition: opacity 0.3s;
+}
+
+.htmx-request button {
+    cursor: not-allowed;
+}
+
+/* Probability bar animation */
+.probability-fill {
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom focus styles */
+input:focus, select:focus, textarea:focus {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+}
+
+/* Smooth transitions */
+* {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}

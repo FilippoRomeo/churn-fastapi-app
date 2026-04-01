@@ -1,0 +1,70 @@
+{% if error %}
+<div class="bg-red-50 border-l-4 border-red-500 rounded-lg shadow-xl p-8 fade-in">
+    <h2 class="text-2xl font-bold text-red-800 mb-4 flex items-center">
+        <span class="mr-2">❌</span> Prediction Failed
+    </h2>
+    <div class="space-y-2 text-red-700">
+        <p><strong>Error Code:</strong> {{ error_code }}</p>
+        <p><strong>Message:</strong> {{ error }}</p>
+    </div>
+</div>
+{% else %}
+<div class="bg-white border-l-4 {% if risk_level == 'HIGH' %}border-red-500 bg-red-50{% elif risk_level == 'MEDIUM' %}border-yellow-500 bg-yellow-50{% else %}border-green-500 bg-green-50{% endif %} rounded-lg shadow-xl p-8 fade-in">
+    
+    <h2 class="text-3xl font-bold mb-6 {% if risk_level == 'HIGH' %}text-red-800{% elif risk_level == 'MEDIUM' %}text-yellow-800{% else %}text-green-800{% endif %}">
+        {% if prediction == 1 %}
+            <span class="mr-2">⚠️</span> Churn Risk Detected
+        {% else %}
+            <span class="mr-2">✅</span> Low Churn Risk
+        {% endif %}
+    </h2>
+    
+    <!-- Result Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div class="text-center">
+            <div class="text-sm text-gray-600 font-semibold mb-2">Customer</div>
+            <div class="text-xl font-bold text-gray-900">{{ customer_name }}</div>
+        </div>
+        
+        <div class="text-center">
+            <div class="text-sm text-gray-600 font-semibold mb-2">Prediction</div>
+            <div class="text-xl font-bold text-gray-900">
+                {% if prediction == 1 %}
+                    Will Churn
+                {% else %}
+                    Will Stay
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="text-center">
+            <div class="text-sm text-gray-600 font-semibold mb-2">Churn Probability</div>
+            <div class="text-xl font-bold text-gray-900">{{ "%.2f"|format(churn_probability * 100) }}%</div>
+        </div>
+        
+        <div class="text-center">
+            <div class="text-sm text-gray-600 font-semibold mb-2">Risk Level</div>
+            <div>
+                <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold {% if risk_level == 'HIGH' %}bg-red-500 text-white{% elif risk_level == 'MEDIUM' %}bg-yellow-500 text-white{% else %}bg-green-500 text-white{% endif %}">
+                    {{ risk_level }}
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Probability Bar -->
+    <div class="mb-6">
+        <div class="w-full h-6 bg-gray-200 rounded-full overflow-hidden">
+            <div class="probability-fill h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500" 
+                 style="width: {{ "%.1f"|format(churn_probability * 100) }}%">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="text-center text-sm text-gray-600 pt-4 border-t border-gray-300">
+        Prediction ID: <strong>#{{ prediction_id }}</strong> | 
+        <a href="/api/predictions/{{ prediction_id }}" target="_blank" class="text-primary hover:underline">View JSON</a>
+    </div>
+</div>
+{% endif %}

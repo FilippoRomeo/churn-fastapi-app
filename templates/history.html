@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction History - Churn API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        danger: '#ef4444',
+                        warning: '#f59e0b',
+                        success: '#10b981',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="text-center text-white mb-8 fade-in">
+            <h1 class="text-4xl md:text-5xl font-bold mb-2 drop-shadow-lg">
+                📊 Prediction History
+            </h1>
+            <p class="text-lg md:text-xl opacity-90">Recent churn predictions</p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="bg-white rounded-lg shadow-xl p-2 mb-8 flex flex-wrap gap-2 fade-in">
+            <a href="/" class="flex-1 min-w-[120px] px-6 py-3 text-center rounded-md text-gray-700 font-semibold hover:bg-gray-100 transition">
+                Predict
+            </a>
+            <a href="/history" class="flex-1 min-w-[120px] px-6 py-3 text-center rounded-md bg-primary text-white font-semibold hover:bg-indigo-700 transition">
+                History
+            </a>
+            <a href="/docs" target="_blank" class="flex-1 min-w-[120px] px-6 py-3 text-center rounded-md text-gray-700 font-semibold hover:bg-gray-100 transition">
+                API Docs
+            </a>
+        </nav>
+
+        <!-- History Table -->
+        <div class="bg-white rounded-lg shadow-xl overflow-hidden fade-in">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Customer</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Prediction</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Probability</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Risk Level</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for pred in predictions %}
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                #{{ pred.id }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {{ pred.customer_name or "Unknown" }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if pred.prediction == 1 %}
+                                    <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full bg-red-100 text-red-800">
+                                        Churn
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full bg-green-100 text-green-800">
+                                        Stay
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {{ "%.2f"|format(pred.churn_probability * 100) }}%
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full 
+                                    {% if pred.risk_level == 'HIGH' %}bg-red-500 text-white
+                                    {% elif pred.risk_level == 'MEDIUM' %}bg-yellow-500 text-white
+                                    {% else %}bg-green-500 text-white{% endif %}">
+                                    {{ pred.risk_level }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ pred.created_at.strftime("%Y-%m-%d %H:%M") }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                {% if not predictions %}
+                <div class="text-center py-16">
+                    <p class="text-gray-500 text-lg">
+                        No predictions yet. <a href="/" class="text-primary font-semibold hover:underline">Make your first prediction</a>
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center text-white mt-8 py-4">
+            <p><a href="/" class="underline hover:text-indigo-200">← Back to Prediction</a></p>
+        </footer>
+    </div>
+</body>
+</html>
