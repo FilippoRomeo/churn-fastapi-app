@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Predictions - Churn Prediction</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 min-h-screen p-4">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-4xl font-bold text-white mb-2">📊 Batch Predictions</h1>
+                <p class="text-white text-lg opacity-90">Upload CSV for multiple predictions</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-white font-semibold" id="username-display"></span>
+                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold">
+                    Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="bg-white rounded-lg shadow-xl p-2 mb-8 flex gap-2">
+            <a href="/dashboard" class="flex-1 px-6 py-3 text-center rounded-md text-gray-700 font-semibold hover:bg-gray-100">
+                Predict
+            </a>
+            <a href="/batch" class="flex-1 px-6 py-3 text-center rounded-md bg-indigo-600 text-white font-semibold">
+                Batch Upload
+            </a>
+            <a href="/history" class="flex-1 px-6 py-3 text-center rounded-md text-gray-700 font-semibold hover:bg-gray-100">
+                History
+            </a>
+            <a href="/docs" target="_blank" class="flex-1 px-6 py-3 text-center rounded-md text-gray-700 font-semibold hover:bg-gray-100">
+                API Docs
+            </a>
+        </nav>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- Upload Section -->
+            <div class="bg-white rounded-lg shadow-xl p-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">📤 Upload CSV File</h2>
+                
+                <!-- Detailed Instructions -->
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-6 mb-6 rounded-r-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <svg class="h-6 w-6 text-blue-500 mt-1" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <h3 class="text-lg font-bold text-blue-900 mb-3">CSV Format Requirements</h3>
+                            
+                            <!-- General Requirements -->
+                            <div class="mb-4">
+                                <h4 class="font-semibold text-blue-800 mb-2">General Rules:</h4>
+                                <ul class="list-disc list-inside space-y-1 text-sm text-blue-700">
+                                    <li>Maximum <strong>100 customers</strong> per upload</li>
+                                    <li>First row must be <strong>column headers</strong></li>
+                                    <li>No empty rows or columns</li>
+                                    <li>Use comma (,) as separator</li>
+                                    <li>UTF-8 encoding recommended</li>
+                                </ul>
+                            </div>
+
+                            <!-- Required Columns -->
+                            <div class="mb-4">
+                                <h4 class="font-semibold text-blue-800 mb-2">Required Columns (17):</h4>
+                                <div class="bg-white p-3 rounded border border-blue-200">
+                                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-blue-900">
+                                        <div><strong>1.</strong> age <span class="text-gray-600">(18-100)</span></div>
+                                        <div><strong>2.</strong> income <span class="text-gray-600">($)</span></div>
+                                        <div><strong>3.</strong> credit_score <span class="text-gray-600">(300-850)</span></div>
+                                        <div><strong>4.</strong> tenure_months <span class="text-gray-600">(0+)</span></div>
+                                        <div><strong>5.</strong> monthly_charges <span class="text-gray-600">($)</span></div>
+                                        <div><strong>6.</strong> num_products <span class="text-gray-600">(1-10)</span></div>
+                                        <div><strong>7.</strong> support_calls <span class="text-gray-600">(0+)</span></div>
+                                        <div><strong>8.</strong> complaints_last_6m <span class="text-gray-600">(0+)</span></div>
+                                        <div><strong>9.</strong> avg_monthly_usage_gb <span class="text-gray-600">(GB)</span></div>
+                                        <div><strong>10.</strong> payment_delay_days <span class="text-gray-600">(0+)</span></div>
+                                        <div><strong>11.</strong> education_encoded <span class="text-gray-600">(0-4)</span></div>
+                                        <div><strong>12.</strong> charges_per_tenure</div>
+                                        <div><strong>13.</strong> usage_per_dollar</div>
+                                        <div><strong>14.</strong> complaint_rate</div>
+                                        <div><strong>15.</strong> support_per_product</div>
+                                        <div><strong>16.</strong> financial_stress</div>
+                                        <div><strong>17.</strong> engagement_score</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Optional Columns -->
+                            <div class="mb-4">
+                                <h4 class="font-semibold text-blue-800 mb-2">Optional Columns:</h4>
+                                <ul class="list-disc list-inside space-y-1 text-sm text-blue-700">
+                                    <li><strong>customer_name</strong> - Customer identifier (text)</li>
+                                    <li><strong>notes</strong> - Additional comments (text)</li>
+                                </ul>
+                            </div>
+
+                            <!-- Data Types & Tips -->
+                            <div class="bg-yellow-50 border border-yellow-200 rounded p-3">
+                                <h4 class="font-semibold text-yellow-800 mb-2 flex items-center">
+                                    <svg class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                    </svg>
+                                    Important Tips:
+                                </h4>
+                                <ul class="list-disc list-inside space-y-1 text-xs text-yellow-800">
+                                    <li><strong>Numbers only</strong> (no $ or % symbols)</li>
+                                    <li><strong>Decimals</strong> use dots (.), not commas</li>
+                                    <li><strong>Education:</strong> 0=HS, 1=Some College, 2=Bachelor, 3=Master, 4=PhD</li>
+                                    <li><strong>Engineered features</strong> can be calculated or estimated</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature Calculation Guide -->
+                <div class="bg-purple-50 border-l-4 border-purple-500 p-4 mb-6 rounded-r-lg">
+                    <button onclick="toggleCalculations()" class="w-full text-left flex items-center justify-between">
+                        <h4 class="font-semibold text-purple-800 flex items-center">
+                            <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 3.5a1.5 1.5 0 013 0V4a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-.5a1.5 1.5 0 000 3h.5a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-.5a1.5 1.5 0 00-3 0v.5a1 1 0 01-1 1H6a1 1 0 01-1-1v-3a1 1 0 00-1-1h-.5a1.5 1.5 0 010-3H4a1 1 0 001-1V6a1 1 0 011-1h3a1 1 0 001-1v-.5z"/>
+                            </svg>
+                            How to Calculate Engineered Features
+                        </h4>
+                        <svg id="calc-arrow" class="h-5 w-5 text-purple-500 transform transition-transform" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                    <div id="calculations" class="hidden mt-3 text-sm text-purple-800 space-y-2">
+                        <div class="bg-white p-2 rounded border border-purple-200">
+                            <strong>charges_per_tenure</strong> = monthly_charges / tenure_months
+                        </div>
+                        <div class="bg-white p-2 rounded border border-purple-200">
+                            <strong>usage_per_dollar</strong> = avg_monthly_usage_gb / monthly_charges
+                        </div>
+                        <div class="bg-white p-2 rounded border border-purple-200">
+                            <strong>complaint_rate</strong> = complaints_last_6m / (tenure_months / 6)
+                        </div>
+                        <div class="bg-white p-2 rounded border border-purple-200">
+                            <strong>support_per_product</strong> = support_calls / num_products
+                        </div>
+                        <div class="bg-white p-2 rounded border border-purple-200">
+                            <strong>financial_stress</strong> = (monthly_charges / income * 12) - (credit_score / 1000)
+                        </div>
+                        <div class="bg-white p-2 rounded border border-purple-200">
+                            <strong>engagement_score</strong> = (avg_monthly_usage_gb / 100) * (1 - complaint_rate)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Download Template -->
+                <div class="mb-6">
+                    <button onclick="downloadTemplate()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2">
+                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                        Download CSV Template with Examples
+                    </button>
+                </div>
+
+                <!-- File Upload -->
+                <form id="batch-form" class="space-y-4">
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <label for="csv-file" class="mt-2 block text-sm font-medium text-gray-700 cursor-pointer">
+                            Click to select CSV file or drag and drop
+                        </label>
+                        <input type="file" id="csv-file" accept=".csv" class="hidden">
+                        <p id="file-name" class="mt-2 text-sm text-gray-500">No file selected</p>
+                    </div>
+                    
+                    <button type="submit" 
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2">
+                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
+                        </svg>
+                        Process Batch Predictions
+                    </button>
+                </form>
+
+                <!-- Loading State -->
+                <div id="loading" class="hidden mt-6 text-center">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                    <p class="mt-2 text-gray-600 font-semibold">Processing your file...</p>
+                    <p class="text-sm text-gray-500">This may take a few moments</p>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="bg-white rounded-lg shadow-xl p-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">📋 Prediction Results</h2>
+                <div id="results" class="text-gray-500 text-center py-12">
+                    <svg class="mx-auto h-16 w-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <p class="font-semibold text-gray-700">No results yet</p>
+                    <p class="text-sm">Upload a CSV file to see predictions here</p>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        function checkAuth() {
+            const token = localStorage.getItem('access_token');
+            const username = localStorage.getItem('username');
+            
+            if (!token) {
+                window.location.href = '/';
+                return false;
+            }
+            
+            if (username) {
+                document.getElementById('username-display').textContent = '👤 ' + username;
+            }
+            
+            return true;
+        }
+
+        window.addEventListener('DOMContentLoaded', checkAuth);
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('username');
+            window.location.href = '/';
+        }
+
+        function toggleCalculations() {
+            const calc = document.getElementById('calculations');
+            const arrow = document.getElementById('calc-arrow');
+            calc.classList.toggle('hidden');
+            arrow.classList.toggle('rotate-180');
+        }
+
+        // File input handling
+        const fileInput = document.getElementById('csv-file');
+        const fileName = document.getElementById('file-name');
+        
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                fileName.textContent = e.target.files[0].name;
+                fileName.classList.add('text-indigo-600', 'font-semibold');
+            }
+        });
+
+        function downloadTemplate() {
+            const template = 'age,income,credit_score,tenure_months,monthly_charges,num_products,support_calls,complaints_last_6m,avg_monthly_usage_gb,payment_delay_days,education_encoded,charges_per_tenure,usage_per_dollar,complaint_rate,support_per_product,financial_stress,engagement_score,customer_name,notes\n35,75000,720,24,89.99,3,2,0,45.5,0,3,3.75,0.506,0.0,0.667,-0.5,0.8,John Doe,VIP customer\n42,95000,780,36,120.50,4,1,0,65.2,0,4,3.35,0.541,0.0,0.25,-0.3,0.9,Jane Smith,Long-term customer\n28,45000,650,12,65.00,2,5,2,25.0,15,2,5.42,0.385,0.167,2.5,0.8,0.4,Bob Wilson,At-risk customer';
+            
+            const blob = new Blob([template], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'batch_prediction_template.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        document.getElementById('batch-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('csv-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a CSV file');
+                return;
+            }
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').innerHTML = '';
+
+            try {
+                const text = await file.text();
+                const rows = text.trim().split('\n');
+                const headers = rows[0].split(',').map(function(h) { return h.trim(); });
+                
+                const customers = [];
+                for (let i = 1; i < rows.length && i <= 100; i++) {
+                    const values = rows[i].split(',');
+                    const customer = {};
+                    headers.forEach(function(header, index) {
+                        const value = values[index] ? values[index].trim() : '';
+                        if (['age', 'income', 'credit_score', 'tenure_months', 'num_products', 'support_calls', 'complaints_last_6m', 'payment_delay_days', 'education_encoded'].indexOf(header) !== -1) {
+                            customer[header] = parseInt(value);
+                        } else if (['monthly_charges', 'avg_monthly_usage_gb', 'charges_per_tenure', 'usage_per_dollar', 'complaint_rate', 'support_per_product', 'financial_stress', 'engagement_score'].indexOf(header) !== -1) {
+                            customer[header] = parseFloat(value);
+                        } else {
+                            customer[header] = value;
+                        }
+                    });
+                    customers.push(customer);
+                }
+
+                const token = localStorage.getItem('access_token');
+                const response = await fetch('/api/predict/batch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ customers: customers })
+                });
+
+                if (!response.ok) {
+                    throw new Error('API error: ' + response.status);
+                }
+
+                const results = await response.json();
+                displayResults(results);
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('results').innerHTML = '<div class="bg-red-50 border-l-4 border-red-500 p-4"><p class="text-red-700 font-semibold">Error processing file</p><p class="text-red-600 text-sm mt-1">' + error.message + '</p></div>';
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        });
+
+        function displayResults(results) {
+            const totalCustomers = results.predictions.length;
+            const highRisk = results.predictions.filter(function(p) { return p.risk_level === 'HIGH'; }).length;
+            const mediumRisk = results.predictions.filter(function(p) { return p.risk_level === 'MEDIUM'; }).length;
+            const lowRisk = results.predictions.filter(function(p) { return p.risk_level === 'LOW'; }).length;
+
+            let html = '<div class="grid grid-cols-3 gap-4 mb-6">';
+            html += '<div class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500"><div class="text-sm text-red-600 font-semibold">High Risk</div><div class="text-2xl font-bold text-red-700">' + highRisk + '</div><div class="text-xs text-red-600 mt-1">≥60% churn probability</div></div>';
+            html += '<div class="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500"><div class="text-sm text-yellow-600 font-semibold">Medium Risk</div><div class="text-2xl font-bold text-yellow-700">' + mediumRisk + '</div><div class="text-xs text-yellow-600 mt-1">30-60% churn probability</div></div>';
+            html += '<div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-500"><div class="text-sm text-green-600 font-semibold">Low Risk</div><div class="text-2xl font-bold text-green-700">' + lowRisk + '</div><div class="text-xs text-green-600 mt-1"><30% churn probability</div></div>';
+            html += '</div>';
+
+            html += '<button onclick="downloadResults(' + JSON.stringify(results.predictions).replace(/"/g, '&quot;') + ')" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg mb-6 flex items-center justify-center gap-2"><svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>Download Results CSV</button>';
+
+            html += '<div class="overflow-x-auto max-h-96"><table class="w-full text-sm"><thead class="bg-gray-100 sticky top-0"><tr><th class="px-3 py-2 text-left">Customer</th><th class="px-3 py-2 text-left">Risk</th><th class="px-3 py-2 text-left">Probability</th></tr></thead><tbody class="divide-y">';
+
+            results.predictions.forEach(function(pred) {
+                const riskColor = pred.risk_level === 'HIGH' ? 'bg-red-500' : pred.risk_level === 'MEDIUM' ? 'bg-yellow-500' : 'bg-green-500';
+                html += '<tr class="hover:bg-gray-50"><td class="px-3 py-2">' + (pred.customer_name || 'Unknown') + '</td><td class="px-3 py-2"><span class="inline-flex px-2 py-1 rounded-full text-xs font-bold text-white ' + riskColor + '">' + pred.risk_level + '</span></td><td class="px-3 py-2">' + (pred.churn_probability * 100).toFixed(1) + '%</td></tr>';
+            });
+
+            html += '</tbody></table></div>';
+
+            document.getElementById('results').innerHTML = html;
+        }
+
+        function downloadResults(predictions) {
+            const headers = ['customer_name', 'prediction', 'churn_probability', 'risk_level', 'notes'];
+            let csv = headers.join(',') + '\n';
+            predictions.forEach(function(p) {
+                csv += (p.customer_name || '') + ',' + (p.prediction === 1 ? 'CHURN' : 'STAY') + ',' + (p.churn_probability * 100).toFixed(2) + '%,' + p.risk_level + ',' + (p.notes || '') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'batch_predictions_' + new Date().toISOString().split('T')[0] + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

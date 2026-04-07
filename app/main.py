@@ -416,3 +416,102 @@ async def api_statistics(
 ):
     """Get overall statistics (requires authentication)"""
     return await get_statistics(db)
+
+@app.get("/batch", response_class=HTMLResponse)
+async def batch_page(request: Request):
+    """Batch prediction page"""
+    return templates.TemplateResponse("batch.html", {"request": request})
+
+
+
+
+@app.post("/api/predict/batch")
+@limit_batch()
+async def batch_predict(
+    request: Request,
+    batch_data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Batch prediction endpoint (requires authentication)
+    Accepts up to 100 customers at once
+    """
+    try:
+        customers = batch_data.get("customers", [])
+        
+        if not customers:
+            raise HTTPException(status_code=400, detail="No customers provided")
+        
+        if len(customers) > 100:
+            raise HTTPException(status_code=400, detail="Maximum 100 customers per batch")
+        
+        predictions = []
+        
+        for customer_data in customers:
+            # Create CustomerData object (customer_name and notes are part of the schema)
+            try:
+                customer = CustomerData(**customer_data)
+            except Exception as e:
+                raise HTTPException(status_code=422, detail=f"Invalid customer data: {str(e)}")
+            
+            # Prepare features as 2D array
+            features = [[
+                customer.age,
+                customer.income,
+                customer.credit_score,
+                customer.tenure_months,
+                customer.monthly_charges,
+                customer.num_products,
+                customer.support_calls,
+                customer.complaints_last_6m,
+                customer.avg_monthly_usage_gb,
+                customer.payment_delay_days,
+                customer.education_encoded,
+                customer.charges_per_tenure,
+                customer.usage_per_dollar,
+                customer.complaint_rate,
+                customer.support_per_product,
+                customer.financial_stress,
+                customer.engagement_score
+            ]]
+            
+            # Make prediction
+            result = model_manager.predict(features)
+            
+            # Add risk level to result
+            churn_prob = result["churn_probability"]
+            if churn_prob >= 0.6:
+                risk_level = "HIGH"
+            elif churn_prob >= 0.3:
+                risk_level = "MEDIUM"
+            else:
+                risk_level = "LOW"
+            
+            result['risk_level'] = risk_level
+            
+            # Save to database using the correct signature
+            db_prediction = await create_prediction(db, customer, result)
+            
+            # Add to results
+            predictions.append({
+                "id": db_prediction.id,
+                "customer_name": customer.customer_name,
+                "prediction": result["prediction"],
+                "churn_probability": result["churn_probability"],
+                "no_churn_probability": result["no_churn_probability"],
+                "risk_level": risk_level,
+                "notes": customer.notes
+            })
+        
+        return {
+            "success": True,
+            "total_predictions": len(predictions),
+            "predictions": predictions
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Batch prediction error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error during batch prediction")

@@ -27,7 +27,10 @@
         <!-- Navigation -->
         <nav class="bg-white rounded-lg shadow-xl p-2 mb-8 flex gap-2">
             <a href="/dashboard" class="flex-1 px-6 py-3 text-center rounded-md text-gray-700 font-semibold hover:bg-gray-100">
-                Predict
+                Single Predict
+            </a>
+            <a href="/batch" class="flex-1 px-6 py-3 text-center rounded-md text-gray-700 font-semibold hover:bg-gray-100">
+                Batch Upload
             </a>
             <a href="/history" class="flex-1 px-6 py-3 text-center rounded-md bg-indigo-600 text-white font-semibold">
                 History
@@ -96,7 +99,6 @@
     </div>
 
     <script>
-        // Check authentication on page load
         function checkAuth() {
             const token = localStorage.getItem('access_token');
             const username = localStorage.getItem('username');
@@ -113,10 +115,8 @@
             return true;
         }
 
-        // Run on page load
         window.addEventListener('DOMContentLoaded', checkAuth);
 
-        // Also check on page visibility change
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden) {
                 checkAuth();
