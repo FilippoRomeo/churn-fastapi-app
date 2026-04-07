@@ -4,9 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
-venv/
-ENV/
 build/
 develop-eggs/
 dist/
@@ -23,11 +20,11 @@ wheels/
 .installed.cfg
 *.egg
 
-# Conda
-.conda/
-
-# Virtual Environment
-churn-api/
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
 
 # IDE
 .vscode/
@@ -36,33 +33,32 @@ churn-api/
 *.swo
 *~
 
-# Environment variables
-.env
-
 # Database
 *.db
 *.sqlite
 *.sqlite3
-churn_predictions.db
 
-# Model files (optional - might want to include)
-# saved_models/*.pkl
-
-# Logs
-*.log
+# Environment variables
+.env
+.env.local
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Jupyter Notebooks (if any)
-.ipynb_checkpoints/
-*.ipynb
+# Logs
+*.log
 
-# Data files (don't commit large CSVs)
-data/*.csv
-*.csv
+# Model files (optional - you might want to include this)
+# saved_models/*.pkl
+
+# Data files
+# data/*.csv
+
+# Docker
+.dockerignore
 
 # Temporary files
-tmp/
-temp/
+*.tmp
+create_templates.sh
+templates/signup_route.py

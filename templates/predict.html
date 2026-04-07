@@ -4,11 +4,13 @@
         <span class="mr-2">❌</span> Prediction Failed
     </h2>
     <div class="space-y-2 text-red-700">
+        {% if error_code %}
         <p><strong>Error Code:</strong> {{ error_code }}</p>
+        {% endif %}
         <p><strong>Message:</strong> {{ error }}</p>
     </div>
 </div>
-{% else %}
+{% elif prediction is defined %}
 <div class="bg-white border-l-4 {% if risk_level == 'HIGH' %}border-red-500 bg-red-50{% elif risk_level == 'MEDIUM' %}border-yellow-500 bg-yellow-50{% else %}border-green-500 bg-green-50{% endif %} rounded-lg shadow-xl p-8 fade-in">
     
     <h2 class="text-3xl font-bold mb-6 {% if risk_level == 'HIGH' %}text-red-800{% elif risk_level == 'MEDIUM' %}text-yellow-800{% else %}text-green-800{% endif %}">
@@ -39,7 +41,7 @@
         
         <div class="text-center">
             <div class="text-sm text-gray-600 font-semibold mb-2">Churn Probability</div>
-            <div class="text-xl font-bold text-gray-900">{{ "%.2f"|format(churn_probability * 100) }}%</div>
+            <div class="text-xl font-bold text-gray-900">{{ (churn_probability * 100)|round(2) }}%</div>
         </div>
         
         <div class="text-center">
@@ -56,7 +58,7 @@
     <div class="mb-6">
         <div class="w-full h-6 bg-gray-200 rounded-full overflow-hidden">
             <div class="probability-fill h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500" 
-                 style="width: {{ "%.1f"|format(churn_probability * 100) }}%">
+                 style="width: {{ (churn_probability * 100)|round(1) }}%">
             </div>
         </div>
     </div>
@@ -66,5 +68,9 @@
         Prediction ID: <strong>#{{ prediction_id }}</strong> | 
         <a href="/api/predictions/{{ prediction_id }}" target="_blank" class="text-primary hover:underline">View JSON</a>
     </div>
+</div>
+{% else %}
+<div class="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg shadow-xl p-8">
+    <p class="text-yellow-800">Waiting for prediction...</p>
 </div>
 {% endif %}

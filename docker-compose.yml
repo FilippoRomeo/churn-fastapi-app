@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: churn-postgres
+    environment:
+      POSTGRES_USER: churn_user
+      POSTGRES_PASSWORD: churn_password
+      POSTGRES_DB: churn_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U churn_user -d churn_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: churn-api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://churn_user:churn_password@postgres:5432/churn_db
+      MODEL_PATH: saved_models/churn_model.pkl
+      SECRET_KEY: your-secret-key-change-in-production
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./saved_models:/app/saved_models
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:

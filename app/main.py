@@ -1,15 +1,15 @@
 """
-Main FastAPI application with HTMX frontend
+Main FastAPI application with HTMX frontend and Authentication
 """
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 import logging
 import joblib
@@ -18,12 +18,19 @@ from pathlib import Path
 
 from app.database import engine, Base, get_db
 from app.models import PredictionRecord
+from app.auth_models import User
 from app.schemas import (
     CustomerData, PredictionResponse, BatchPredictionRequest,
     BatchPredictionResponse, ErrorResponse, PredictionHistory
 )
+from app.auth_schemas import UserCreate, UserLogin, Token, UserResponse
 from app.crud import (
     create_prediction, get_predictions, get_prediction_by_id, get_statistics
+)
+from app.auth import (
+    get_password_hash, authenticate_user, create_access_token,
+    get_current_active_user, get_user_by_username, get_user_by_email,
+    ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from app.rate_limiter import limiter, limit_predict, limit_batch, limit_general
 from app.error_codes import ErrorCodes
@@ -107,18 +114,6 @@ def get_risk_level(churn_probability: float) -> str:
     else:
         return "HIGH"
 
-def create_error_response(error_code: str, details: str = None) -> JSONResponse:
-    """Create standardized error response"""
-    return JSONResponse(
-        status_code=ErrorCodes.get_http_status(error_code),
-        content={
-            "error_code": error_code,
-            "error_message": ErrorCodes.get_message(error_code),
-            "details": details,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    )
-
 # Lifespan context manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -146,7 +141,7 @@ async def lifespan(app: FastAPI):
 # FastAPI app
 app = FastAPI(
     title="Churn Prediction API",
-    description="ML-powered customer churn prediction with HTMX frontend",
+    description="ML-powered customer churn prediction with authentication",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -160,39 +155,112 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # ============================================================================
+# AUTHENTICATION ROUTES
+# ============================================================================
+
+@app.post("/api/auth/signup", response_model=UserResponse)
+@limit_general()
+async def signup(user_data: UserCreate, request: Request, db: AsyncSession = Depends(get_db)):
+    """Register a new user"""
+    
+    # Check if user already exists
+    existing_user = await get_user_by_email(db, user_data.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    existing_username = await get_user_by_username(db, user_data.username)
+    if existing_username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already taken"
+        )
+    
+    # Create new user
+    hashed_password = get_password_hash(user_data.password)
+    
+    new_user = User(
+        email=user_data.email,
+        username=user_data.username,
+        hashed_password=hashed_password,
+        full_name=user_data.full_name
+    )
+    
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    
+    logger.info(f"New user registered: {new_user.username}")
+    
+    return new_user
+
+@app.post("/api/auth/login", response_model=Token)
+@limit_general()
+async def login(user_credentials: UserLogin, request: Request, db: AsyncSession = Depends(get_db)):
+    """Login and get access token"""
+    
+    user = await authenticate_user(db, user_credentials.username, user_credentials.password)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username},
+        expires_delta=access_token_expires
+    )
+    
+    logger.info(f"User logged in: {user.username}")
+    
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/auth/me", response_model=UserResponse)
+async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
+    """Get current user information"""
+    return current_user
+
+# ============================================================================
 # HTMX FRONTEND ROUTES
 # ============================================================================
 
 @app.get("/", response_class=HTMLResponse)
 @limit_general()
-async def home(request: Request, db: AsyncSession = Depends(get_db)):
-    """Main page with HTMX interface"""
+async def home(request: Request):
+    """Login page"""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.get("/signup", response_class=HTMLResponse)
+@limit_general()
+async def signup_page(request: Request):
+    """Signup page"""
+    return templates.TemplateResponse("signup.html", {"request": request})
+
+@app.get("/dashboard", response_class=HTMLResponse)
+@limit_general()
+async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
+    """Dashboard page"""
     stats = await get_statistics(db)
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request, "stats": stats}
-    )
+    return templates.TemplateResponse("dashboard.html", {"request": request, "stats": stats})
 
 @app.get("/history", response_class=HTMLResponse)
 @limit_general()
-async def history_page(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    limit: int = 20
-):
+async def history_page(request: Request, db: AsyncSession = Depends(get_db), limit: int = 20):
     """Prediction history page"""
     predictions = await get_predictions(db, limit=limit)
-    return templates.TemplateResponse(
-        "history.html",
-        {"request": request, "predictions": predictions}
-    )
+    return templates.TemplateResponse("history.html", {"request": request, "predictions": predictions})
 
 @app.post("/htmx/predict", response_class=HTMLResponse)
 @limit_predict()
 async def htmx_predict(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    # Form fields
     customer_name: Optional[str] = Form(None),
     age: int = Form(...),
     income: float = Form(...),
@@ -226,15 +294,10 @@ async def htmx_predict(
         )
     
     try:
-        # Create CustomerData object
         customer = CustomerData(
-            age=age,
-            income=income,
-            credit_score=credit_score,
-            tenure_months=tenure_months,
-            monthly_charges=monthly_charges,
-            num_products=num_products,
-            support_calls=support_calls,
+            age=age, income=income, credit_score=credit_score,
+            tenure_months=tenure_months, monthly_charges=monthly_charges,
+            num_products=num_products, support_calls=support_calls,
             complaints_last_6m=complaints_last_6m,
             avg_monthly_usage_gb=avg_monthly_usage_gb,
             payment_delay_days=payment_delay_days,
@@ -249,18 +312,14 @@ async def htmx_predict(
             notes=notes
         )
         
-        # Extract features
         feature_values = [getattr(customer, f) for f in model_manager.feature_names]
         features = np.array(feature_values).reshape(1, -1)
         
-        # Predict
         result = model_manager.predict(features)
         result['risk_level'] = get_risk_level(result['churn_probability'])
         
-        # Save to database
         db_record = await create_prediction(db, customer, result)
         
-        # Return HTMX response
         return templates.TemplateResponse(
             "predict.html",
             {
@@ -292,7 +351,7 @@ async def htmx_predict(
 @app.get("/api/health")
 @limit_general()
 async def health_check(request: Request):
-    """Health check endpoint"""
+    """Health check endpoint (public)"""
     return {
         "status": "healthy" if model_manager.is_loaded else "unhealthy",
         "model_loaded": model_manager.is_loaded,
@@ -304,26 +363,23 @@ async def health_check(request: Request):
 async def api_predict(
     customer: CustomerData,
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
-    """REST API prediction endpoint"""
+    """REST API prediction endpoint (requires authentication)"""
     
     if not model_manager.is_loaded:
-        return create_error_response(ErrorCodes.MODEL_NOT_LOADED)
+        raise HTTPException(status_code=500, detail="Model not loaded")
     
     try:
-        # Extract features
         feature_values = [getattr(customer, f) for f in model_manager.feature_names]
         features = np.array(feature_values).reshape(1, -1)
         
-        # Predict
         result = model_manager.predict(features)
         result['risk_level'] = get_risk_level(result['churn_probability'])
         
-        # Save to database
         db_record = await create_prediction(db, customer, result)
         
-        # Return response
         return PredictionResponse(
             id=db_record.id,
             prediction=result['prediction'],
@@ -336,51 +392,7 @@ async def api_predict(
         
     except Exception as e:
         logger.error(f"API prediction error: {e}")
-        return create_error_response(ErrorCodes.PREDICTION_FAILED, str(e))
-
-@app.post("/api/predict/batch", response_model=BatchPredictionResponse)
-@limit_batch()
-async def api_batch_predict(
-    batch: BatchPredictionRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
-):
-    """REST API batch prediction endpoint"""
-    
-    if not model_manager.is_loaded:
-        return create_error_response(ErrorCodes.MODEL_NOT_LOADED)
-    
-    try:
-        predictions = []
-        
-        for customer in batch.customers:
-            feature_values = [getattr(customer, f) for f in model_manager.feature_names]
-            features = np.array(feature_values).reshape(1, -1)
-            
-            result = model_manager.predict(features)
-            result['risk_level'] = get_risk_level(result['churn_probability'])
-            
-            db_record = await create_prediction(db, customer, result)
-            
-            predictions.append(PredictionResponse(
-                id=db_record.id,
-                prediction=result['prediction'],
-                churn_probability=round(result['churn_probability'], 4),
-                no_churn_probability=round(result['no_churn_probability'], 4),
-                risk_level=result['risk_level'],
-                timestamp=db_record.created_at,
-                customer_name=customer.customer_name
-            ))
-        
-        return BatchPredictionResponse(
-            predictions=predictions,
-            total_processed=len(predictions),
-            timestamp=datetime.utcnow()
-        )
-        
-    except Exception as e:
-        logger.error(f"Batch prediction error: {e}")
-        return create_error_response(ErrorCodes.PREDICTION_FAILED, str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/predictions", response_model=List[PredictionHistory])
 @limit_general()
@@ -388,83 +400,19 @@ async def api_get_predictions(
     request: Request,
     skip: int = 0,
     limit: int = 100,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
-    """Get prediction history"""
+    """Get prediction history (requires authentication)"""
     predictions = await get_predictions(db, skip, limit)
     return predictions
 
-@app.get("/api/predictions/{prediction_id}", response_model=PredictionResponse)
-@limit_general()
-async def api_get_prediction(
-    prediction_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
-):
-    """Get single prediction by ID"""
-    prediction = await get_prediction_by_id(db, prediction_id)
-    
-    if not prediction:
-        return create_error_response(
-            ErrorCodes.INVALID_CUSTOMER_ID,
-            f"Prediction {prediction_id} not found"
-        )
-    
-    return PredictionResponse(
-        id=prediction.id,
-        prediction=prediction.prediction,
-        churn_probability=prediction.churn_probability,
-        no_churn_probability=prediction.no_churn_probability,
-        risk_level=prediction.risk_level,
-        timestamp=prediction.created_at,
-        customer_name=prediction.customer_name
-    )
-
 @app.get("/api/statistics")
 @limit_general()
-async def api_statistics(request: Request, db: AsyncSession = Depends(get_db)):
-    """Get overall statistics"""
+async def api_statistics(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get overall statistics (requires authentication)"""
     return await get_statistics(db)
-
-@app.get("/api/model/info")
-@limit_general()
-async def api_model_info(request: Request):
-    """Get model information"""
-    
-    if not model_manager.is_loaded:
-        return create_error_response(ErrorCodes.MODEL_NOT_LOADED)
-    
-    return {
-        "model_loaded": True,
-        "features": model_manager.feature_names,
-        "feature_count": len(model_manager.feature_names),
-        "metadata": model_manager._metadata,
-        "timestamp": datetime.utcnow().isoformat()
-    }
-
-# Exception handlers
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTP exceptions"""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error_code": ErrorCodes.INTERNAL_ERROR,
-            "error_message": exc.detail,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    )
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handle all other exceptions"""
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error_code": ErrorCodes.INTERNAL_ERROR,
-            "error_message": "An unexpected error occurred",
-            "details": str(exc),
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    )

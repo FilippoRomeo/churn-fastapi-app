@@ -1,10 +1,12 @@
 """
-Configuration management using pydantic-settings
+Configuration settings using Pydantic
 """
 from pydantic_settings import BaseSettings
 from typing import Optional
 
 class Settings(BaseSettings):
+    """Application settings"""
+    
     # Database
     database_url: str = "sqlite+aiosqlite:///./churn_predictions.db"
     
@@ -21,11 +23,14 @@ class Settings(BaseSettings):
     rate_limit_batch: str = "10/minute"
     rate_limit_general: str = "100/minute"
     
+    # JWT Authentication
+    secret_key: str = "your-secret-key-change-this-in-production"
+    
     # Logging
     log_level: str = "INFO"
     
     class Config:
         env_file = ".env"
-        case_sensitive = False
+        extra = "allow"  # Allow extra fields from .env
 
 settings = Settings()

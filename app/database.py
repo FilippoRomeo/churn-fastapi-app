@@ -1,30 +1,30 @@
 """
-SQLAlchemy database configuration
+Database configuration with SQLAlchemy async
 """
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from config import settings
 
-# Create async engine
+# Create async engine for SQLite
 engine = create_async_engine(
     settings.database_url,
     echo=False,
-    future=True
+    connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {}
 )
 
-# Create async session factory
+# Session factory
 AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,
     autocommit=False,
-    autoflush=False,
+    autoflush=False
 )
 
 # Base class for models
 Base = declarative_base()
 
-# Dependency for getting database session
+# Dependency for getting DB session
 async def get_db():
     async with AsyncSessionLocal() as session:
         try:
