@@ -169,19 +169,33 @@ churn-fastapi-app/
 ├── run.sh                   # Launch script
 ├── requirements.txt         # Dependencies
 ├── config.py                # Configuration
-├── .env                     # Environment vars
+├── .env                     # Local environment variables (not committed)
+├── .env.example             # Safe configuration template
 └── README.md                # This file
 ```
 
 ## 🔧 Configuration
 
-Edit `.env` file:
+`.env` is ignored by Git. Copy the safe template and replace the placeholder secrets locally:
+
+```bash
+cp .env.example .env
+openssl rand -hex 32
+```
+
+Use the generated value for `SECRET_KEY` in `.env`. If you use Docker Compose, also replace `POSTGRES_PASSWORD` before starting the stack.
+
+Example local configuration:
+
 ```bash
 DATABASE_URL=sqlite+aiosqlite:///./churn_predictions.db
 MODEL_PATH=saved_models/churn_model.pkl
 API_PORT=8000
 RATE_LIMIT_PREDICT=60/minute
+SECRET_KEY=replace-with-a-random-secret
 ```
+
+If `SECRET_KEY` is omitted during a direct local run, the app generates a random per-process key. Set it explicitly for stable deployments, restarts, or multiple workers. `docker-compose.yml` requires both `SECRET_KEY` and `POSTGRES_PASSWORD` and binds PostgreSQL only to `127.0.0.1` on the host.
 
 ## 🧪 Testing
 ```bash
@@ -212,19 +226,19 @@ python test_api.py
 ## 🚢 Deployment
 
 ### Docker (Optional)
-```bash
-# Build image
-docker build -t churn-api:1.0.0 .
 
-# Run container
-docker run -p 8000:8000 churn-api:1.0.0
+Copy `.env.example` to `.env`, replace the placeholder secrets, then use Docker Compose:
+
+```bash
+cp .env.example .env
+docker compose up --build
 ```
 
 ### Production
 
 For production deployment, consider:
 - Use PostgreSQL instead of SQLite
-- Add authentication (JWT)
+- Set a persistent high-entropy `SECRET_KEY`
 - Use Gunicorn with multiple workers
 - Set up HTTPS with nginx
 - Add monitoring (Prometheus/Grafana)
